@@ -1,7 +1,8 @@
 import { urlUtil } from './urlUtil.mjs';
+import { env } from '../env.mjs';
 
-const clientId = 'aba3355980884629b31c4f261ff94d7f'; // Ensure this matches your Spotify app settings
-const redirectUri = urlUtil.getCurrentUrl();         // Ensure this matches your Spotify app settings
+const clientId = env.clientId;               // Ensure this matches your Spotify app settings
+const redirectUri = urlUtil.getCurrentUrl(); // Ensure this matches your Spotify app settings
 const scopes = 'playlist-read-private playlist-read-collaborative user-read-private';
 
 function base64urlencode(str) {

@@ -1,20 +1,15 @@
 # WebRTC Hitster
-Proof of concept program for a serverless multiplayer game using WebRTC and WebTorrent.
+Proof of concept program for a P2P multiplayer game using WebRTC and WebTorrent.
 
-The game probable does not work if all ends of a connection are under symmetric NAT, but if at least one isn't it should work.
+Open [wiluxgit.github.io/webrtc-hitster](https://wiluxgit.github.io/webrtc-hitster) to generate a random room and the share the room link with your friends!
 
-# How does it work?
-In order to P2P over WebRTC it is needed for `A` to send `B` an `offer` and after which `B` send `A` and accept. Normally this requires some signaling server but we offload that to WebTorrent trackers to do it for us.
-
-We use the room ID to create magnet links and seed dummy data.
-The actual game data will be transfered inbetween seeders using extended ut_metadata.
+The game *probably* does not work if all connected users are under [Symmetric NAT](https://networkengineering.stackexchange.com/questions/67218/why-is-symmetric-nat-called-symmetric). But if at least one user isn't, the game should just work.
 
 # Build & Deploy
+This is a static site, it has no build proccess. Any dependencies are included directly using `<script>` tags.
 
-This repo uses the [https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow](Spotify API authenticated with PKCE). The `clientId` is hardcoded to my app, this id is public.
 
-I have configured it to only work on:
-`https://wiluxgit.github.io/webrtc-hitster/index.html`
-`http://127.0.0.1:5500/index.html`
+## Spotify Auth
+This repo uses the [Spotify API authenticated with PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow) to fetch playlists and audio snippets. The site configuration for this is stored in `env.mjs`.
 
-As such it's theoretically possible to test this code locally using LiveServer in vscode. But in order to deploy the code you must change the `clientID` to your own.
+In order to deploy this repo elsewhere you must change this to your own `clientId` as the one in the repo can only authenticatate <https://wiluxgit.github.io/webrtc-hitster/index.html>. You can create and configure your own `clientId` through the [Spotify developer dashboard](https://developer.spotify.com/dashboard/).

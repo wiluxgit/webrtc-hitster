@@ -2,8 +2,19 @@
 <html>
 
 <head>
-  <title>WebTorrent Chat Test</title>
+  <title>WebRTC hitster</title>
+  <!-- Webtorrent -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+
+  <!-- TailwindCSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Alpine.js -->
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
   <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
   <style>
     body {
@@ -24,7 +35,6 @@
       white-space: pre-wrap;
     }
   </style>
-  <script type="module" src="./components/playlist-picker.mjs"></script>
 </head>
 
 <body>
@@ -51,15 +61,70 @@
     <div id="spotifyPLout" class="chat"></div>
   </div>
 
+  <div class="p-4 max-w-xl mx-auto">
+    <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
+
+    <ul class="space-y-2"
+      x-data='{
+        tracks: [
+          {id: "1", locked: false, name: "Song A", artist: "Artist 1", year: "2023", preview_url: "x.mp3"},
+          {id: "2", locked: false, name: "Song B", artist: "Artist 2", year: "2022", preview_url: "y.mp3"},
+          {id: "3", locked: false, name: "Song C", artist: "Artist 3", year: "2021", preview_url: "z.mp3"},
+          {id: "4", locked: false, name: "Song D", artist: "Artist 4", year: "2021", preview_url: "z.mp3"},
+        ],
+        sortableInstance: null,
+        init() {
+          const el = this;
+          Sortable.create(this.$el, {
+            animation: 150,
+            onEnd: function(evt) {
+              const movedItem = el.tracks.splice(evt.oldIndex, 1)[0];
+              el.tracks.splice(evt.newIndex, 0, movedItem);
+            },
+          });
+        },
+        toggleLock(track) {
+          track.locked = !track.locked;
+        },
+      }'
+      x-init='init'
+    >
+      <template x-for="(track, index) in tracks" :key="track.id">
+        <li class="p-3 bg-gray-100 rounded shadow flex justify-between items-center"
+            :class="{ 'opacity-50 cursor-not-allowed': track.locked }">
+
+          <div class="flex items-center gap-2">
+            <span class="drag-handle cursor-move text-gray-400"
+                  :class="{ 'cursor-not-allowed': track.locked }">⠿</span>
+            <div>
+              <div x-text="track.name" class="font-semibold"></div>
+              <div x-text="`${track.artist} (${track.year})`" class="text-sm text-gray-600"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button @click="toggleLock(track)"
+                    class="text-xs px-2 py-1 rounded border text-gray-600 hover:bg-gray-200"
+                    :class="{ 'bg-red-200 text-red-800': track.locked }"
+            >
+              <span x-text="track.locked ? 'Unlock' : 'Lock'"></span>
+            </button>
+          </div>
+        </li>
+      </template>
+    </ul>
+  </div>
+
+
   <script type="module">
-    import { SpotifyAuth } from './modules/spotifyAuth.mjs';
-    import { WebTorrentSession } from './modules/webTorrentSession.mjs';
-    import { spotifyRequest } from './modules/spotifyRequest.mjs';
+    import { SpotifyAuth } from "./modules/spotifyAuth.mjs";
+    import { WebTorrentSession } from "./modules/webTorrentSession.mjs";
+    import { spotifyRequest } from "./modules/spotifyRequest.mjs";
 
     // Clear localStorage for debugging purposes (delets spotify auth tokens)
-    document.getElementById('clearLocalStorageBtn').onclick = () => {
+    document.getElementById("clearLocalStorageBtn").onclick = () => {
       localStorage.clear();
-      alert('localStorage cleared!');
+      alert("localStorage cleared!");
       location.reload();
     };
 
@@ -77,30 +142,30 @@
     const roomId = getRoomId();
 
     // Initialize WebTorrent session
-    const statusDiv = document.getElementById('status');
-    const chatDiv = document.getElementById('chat');
+    const statusDiv = document.getElementById("status");
+    const chatDiv = document.getElementById("chat");
     const session = new WebTorrentSession({
-        roomId: roomId,
-        onStatus: msg => statusDiv.textContent = msg,
-        onChatMessage: msg => {
-            chatDiv.textContent += `Peer: ${msg}\n`;
-        },
-        onSystemMessage: msg => {
-          chatDiv.textContent += `[System]: ${msg}\n`
-        }
+      roomId: roomId,
+      onStatus: msg => statusDiv.textContent = msg,
+      onChatMessage: msg => {
+        chatDiv.textContent += `Peer: ${msg}\n`;
+      },
+      onSystemMessage: msg => {
+        chatDiv.textContent += `[System]: ${msg}\n`
+      }
     });
 
     // Hook how to send text into WebTorrent session
-    document.getElementById('sendBtn').onclick = () => {
-        const msg = document.getElementById('message').value;
-        chatDiv.textContent += `You: ${msg}\n`;
-        session.sendMessage(msg);
-        document.getElementById('message').value = '';
+    document.getElementById("sendBtn").onclick = () => {
+      const msg = document.getElementById("message").value;
+      chatDiv.textContent += `You: ${msg}\n`;
+      session.sendMessage(msg);
+      document.getElementById("message").value = "";
     };
 
     // Setup handling when we are redirected here from spotify auth
     let accessToken = null;
-    const spotifyStatusDiv = document.getElementById('spotifyStatus');
+    const spotifyStatusDiv = document.getElementById("spotifyStatus");
     const spotifyAuth = new SpotifyAuth({
       onStatus: msg => spotifyStatusDiv.textContent = msg,
       onAuthSuccess: (msg, data) => {
@@ -114,7 +179,7 @@
     });
 
     // Trigger redirect back to this same page but go through the Spotify auth flow
-    document.getElementById('spotifyLoginBtn').onclick = () => spotifyAuth.authenticateAndReload();
+    document.getElementById("spotifyLoginBtn").onclick = () => spotifyAuth.authenticateAndReload();
 
     // Handle Spotify playlist search
     const spotifyPLsearch = document.getElementById("spotifyPLsearch");
@@ -124,12 +189,12 @@
     spotifyPLsubmit.onclick = () => {
       spotifyRequest.getPlaylistTracks(accessToken, spotifyPLsearch.value)
         .then(tracks => {
-          spotifyPLsearch.value = '';
-          console.log('Fetched tracks:', tracks);
+          spotifyPLsearch.value = "";
+          console.log("Fetched tracks:", tracks);
         })
         .catch(err => {
-          console.error('Error fetching playlist:', err);
-          spotifyPLout.textContent = 'Error fetching playlist';
+          console.error("Error fetching playlist:", err);
+          spotifyPLout.textContent = "Error fetching playlist";
         });
     }
   </script>
