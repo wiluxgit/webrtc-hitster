@@ -64,51 +64,55 @@
   <div class="max-w-xl mx-auto">
     <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
 
-    <ul class="space-y-2"
+    <ul x-sort class="space-y-2"
       x-data='{
         yeargroups: [
-          {id: "1", year: "2010", tracks: [
-            {tid: "1", name: "Song A", artist: "Artist 1", year: "2023", preview_url: "x.mp3"},
-            {tid: "2", name: "Song B", artist: "Artist 2", year: "2022", preview_url: "y.mp3"},
+          {id: 0, year: "2010", tracks: [
+            {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
+            {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
           ]},
-          {id: "2", year: "2022", tracks: [
-            {tid: "1", name: "Song A", artist: "Artist 1", year: "2023", preview_url: "x.mp3"},
-            {tid: "2", name: "Song B", artist: "Artist 2", year: "2022", preview_url: "y.mp3"},
+          {id: 1, year: "2022", tracks: [
+            {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
+            {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
           ]},
-          {id: "3", year: "2023", tracks: [
-            {tid: "1", name: "Song C", artist: "Artist 3", year: "2022", preview_url: "z.mp3"},
+          {id: 2, year: "2023", tracks: [
+            {id: 1, name: "Song C", artist: "Artist 3", preview_url: "z.mp3"},
           ]},
-          {id: "4", year: "", new: true, tracks: [
+          {id: 3, year: "", new: true, tracks: [
           ]},
         ],
         init() {
           const el = this;
           Sortable.create(this.$el, {
             animation: 150,
-            onEnd: function(evt) {
-              const movedItem = el.yeargroups.splice(evt.oldIndex, 1)[0];
-              el.yeargroups.splice(evt.newIndex, 0, movedItem);
-            },
           });
         },
       }'
       x-init='init'
     >
       <template x-for="(yg, yix) in yeargroups" :key="yg.id">
-        <li class="flex flex-row items-center gap-4">
+        <li class="flex flex-row items-center gap-4" x-sort:item>
           <!-- tracks -->
           <div
+            :data-id="yg.id"
             class="flex-1 rounded shadow"
             :class="yg.new ? 'bg-blue-400 p-6' : 'bg-gray-200 p-2'"
           >
-            <div class="bg-white rounded shadow">
-              <template x-for="(track, tix) in yg.tracks" :key="track.tid">
-                <div class="px-3 py-1 flex justify-between items-center">
-                  <div class="font-medium truncate" x-text="track.name"></div>
-                  <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist} (${track.year})`"></div>
-                </div>
-              </template>
-            </div>
+            <template x-if="!yg.new">
+              <div class="bg-white rounded shadow">
+                <template x-for="(track, tix) in yg.tracks" :key="track.id">
+                  <div class="px-3 py-1 flex justify-between items-center">
+                    <div class="font-medium truncate" x-text="track.name"></div>
+                    <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist}`"></div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="yg.new">
+              <div class="text-center">
+                Unknown Song (Currently playing). Drag and drop
+              </div>
+            </template>
           </div>
 
           <!-- Year -->
