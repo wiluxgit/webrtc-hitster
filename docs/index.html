@@ -3,6 +3,7 @@
 
 <head>
   <title>Serverless WebRTC (Copy-Paste)</title>
+  <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/6/6c/WebRTC_logo.svg">
   <style>
     textarea {
       width: 100%;
@@ -16,6 +17,7 @@
 </head>
 
 <body>
+  <h1>10:05</h1>
   <h2>Step 1: Create or Paste an Offer</h2>
   <button onclick="createOffer()">Create Offer</button>
   <textarea id="offer" placeholder="Paste offer here if you're the answerer..."></textarea>
@@ -38,11 +40,23 @@
     let isMakingOffer = false;
     let isMakingAnswer = false;
 
+    // --- URL param helper ---
+    function getUrlParam(name) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+
+    // --- On load: check for offer param and fill textarea ---
     window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("offer").value = "";
       document.getElementById("answer").value = "";
       document.getElementById("message").value = "";
       document.getElementById("chat").textContent = "";
+
+      const offerParam = getUrlParam("offer");
+      if (offerParam) {
+        document.getElementById("offer").value = offerParam;
+      }
     });
 
     dc.onmessage = (e) => chat.textContent += "Peer: " + e.data + "\n";
@@ -104,6 +118,27 @@
       isMakingOffer = true;
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      // Wait for ICE gathering to complete
+      await new Promise(resolve => {
+        if (pc.iceGatheringState === "complete") return resolve();
+        function check() {
+          if (pc.iceGatheringState === "complete") {
+            pc.removeEventListener("icegatheringstatechange", check);
+            resolve();
+          }
+        }
+        pc.addEventListener("icegatheringstatechange", check);
+      });
+      const desc = toBase64Json(pc.localDescription);
+      const base =
+        location.origin === "null"
+          ? location.href.split('?')[0]
+          : location.origin + location.pathname;
+      const url = `${base}?offer=${encodeURIComponent(desc)}`;
+      await navigator.clipboard.writeText(url);
+      alert("Share this link with your peer! (Copied to clipboard)");
+      document.getElementById("offer").value = desc;
+      isMakingOffer = false;
     }
 
     async function createAnswer() {
