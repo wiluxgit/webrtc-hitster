@@ -17,13 +17,14 @@
       height: 100px;
     }
 
-    #chat {
+    .chat {
       background: #eee;
       padding: 1em;
       min-height: 100px;
       white-space: pre-wrap;
     }
   </style>
+  <script type="module" src="./components/playlist-picker.mjs"></script>
 </head>
 
 <body>
@@ -35,7 +36,7 @@
     <input id="message" placeholder="Type a message" />
     <button id="sendBtn">Send</button>
   </div>
-  <div id="chat"></div>
+  <div id="chat" class="chat"></div>
 
   <h2>Spotify</h2>
   <div id="share"></div>
@@ -43,9 +44,17 @@
     <button id="spotifyLoginBtn">Login with Spotify</button>
     <div id="spotifyStatus"></div>
   </div>
+
+  <div>
+    <input id="spotifyPLsearch" placeholder="Paste a playlist url" />
+    <button id="spotifyPLsubmit">Send</button>
+    <div id="spotifyPLout" class="chat"></div>
+  </div>
+
   <script type="module">
     import { SpotifyAuth } from './modules/spotifyAuth.mjs';
     import { WebTorrentSession } from './modules/webTorrentSession.mjs';
+    import { spotifyRequest } from './modules/spotifyRequest.mjs';
 
     // Clear localStorage for debugging purposes (delets spotify auth tokens)
     document.getElementById('clearLocalStorageBtn').onclick = () => {
@@ -90,12 +99,14 @@
     };
 
     // Setup handling when we are redirected here from spotify auth
+    let accessToken = null;
     const spotifyStatusDiv = document.getElementById('spotifyStatus');
     const spotifyAuth = new SpotifyAuth({
       onStatus: msg => spotifyStatusDiv.textContent = msg,
       onAuthSuccess: (msg, data) => {
         spotifyStatusDiv.textContent = msg
         console.log(msg, data);
+        accessToken = data.access_token;
       },
       onAuthFail: (msg, data) => spotifyStatusDiv.textContent = msg,
       onMissingVerifier: msg => spotifyStatusDiv.textContent = msg,
@@ -104,6 +115,23 @@
 
     // Trigger redirect back to this same page but go through the Spotify auth flow
     document.getElementById('spotifyLoginBtn').onclick = () => spotifyAuth.authenticateAndReload();
+
+    // Handle Spotify playlist search
+    const spotifyPLsearch = document.getElementById("spotifyPLsearch");
+    const spotifyPLsubmit = document.getElementById("spotifyPLsubmit");
+    const spotifyPLout = document.getElementById("spotifyPLout");
+
+    spotifyPLsubmit.onclick = () => {
+      spotifyRequest.getPlaylistTracks(accessToken, spotifyPLsearch.value)
+        .then(tracks => {
+          spotifyPLsearch.value = '';
+          console.log('Fetched tracks:', tracks);
+        })
+        .catch(err => {
+          console.error('Error fetching playlist:', err);
+          spotifyPLout.textContent = 'Error fetching playlist';
+        });
+    }
   </script>
 </body>
 
