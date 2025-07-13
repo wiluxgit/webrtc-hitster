@@ -28,9 +28,10 @@ export class SpotifyAuth {
         this.onAuthFail = handlers.onAuthFail || (() => {});
         this.onMissingVerifier = handlers.onMissingVerifier || (() => {});
         this.onNoCode = handlers.onNoCode || (() => {});
+        this.init();
     }
 
-    async onPageLoad() {
+    async init() {
         const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
         if (code) {
@@ -83,65 +84,5 @@ export class SpotifyAuth {
         });
         this.onStatus('Redirecting to Spotify for authentication...');
         window.location = 'https://accounts.spotify.com/authorize?' + params.toString();
-    }
-}
-export const spotifyAuth = {
-    async handleSpotifyRedirect(spotifyStatusDiv) {
-        // Check if we have a code in the URL, if yes
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
-        if (code) {
-            spotifyStatusDiv.textContent = "Exchanging code for token...";
-            const codeVerifier = localStorage.getItem('spotify_code_verifier');
-            if (!codeVerifier) {
-                spotifyStatusDiv.textContent = "Missing code verifier. Please try logging in again.";
-                return;
-            }
-            // Exchange code for access token
-            const body = new URLSearchParams({
-                grant_type: 'authorization_code',
-                code: code,
-                redirect_uri: redirectUri,
-                client_id: clientId,
-                code_verifier: codeVerifier
-            });
-
-            const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body
-            });
-
-            const data = await response.json();
-            if (data.access_token) {
-                spotifyStatusDiv.textContent = "Spotify Authenticated!";
-                // Optionally, store the token or use it for API calls
-                // localStorage.setItem('spotify_access_token', data.access_token);
-            } else {
-                spotifyStatusDiv.textContent = "Spotify Auth failed.";
-            }
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else {
-            spotifyStatusDiv.textContent = "No code found in URL.";
-        }
-    },
-    async executeAuth() {
-      const codeVerifier = generateRandomString(64);
-      const codeChallenge = await generateCodeChallenge(codeVerifier);
-      localStorage.setItem('spotify_code_verifier', codeVerifier);
-
-      const params = new URLSearchParams({
-        response_type: 'code',
-        client_id: clientId,
-        scope: scopes,
-        redirect_uri: redirectUri,
-        code_challenge_method: 'S256',
-        code_challenge: codeChallenge
-      });
-      console.log('Redirecting to Spotify with params:', params.toString());
-      alert('Redirecting to Spotify for authentication...');
-
-      window.location = 'https://accounts.spotify.com/authorize?' + params.toString();
     }
 }
