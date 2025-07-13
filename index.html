@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>WebTorrent Chat Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 500px;
+      margin: 2em auto;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+    }
+
+    #chat {
+      background: #eee;
+      padding: 1em;
+      min-height: 100px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>WebTorrent Chat</h2>
+  <div id="status">Status: Not connected</div>
+  <div>
+    <input id="message" placeholder="Type a message" />
+    <button id="sendBtn">Send</button>
+  </div>
+  <div id="chat"></div>
+  <div id="share"></div>
+  <div id="spotify-auth">
+    <button id="spotifyLoginBtn">Login with Spotify</button>
+    <div id="spotifyStatus"></div>
+  </div>
+  <script type="module">
+    import { SpotifyAuth } from './modules/spotifyAuth.mjs';
+
+    // Generate a random room id if not present in URL
+    function getRoomId() {
+      const url = new URL(window.location.href);
+      let room = url.searchParams.get("room");
+      if (!room) {
+        room = Math.random().toString(36).slice(2, 10);
+        url.searchParams.set("room", room);
+        history.replaceState({}, "", url);
+      }
+      return room;
+    }
+
+    const roomId = getRoomId();
+
+    const statusDiv = document.getElementById('status');
+    const chatDiv = document.getElementById('chat');
+    const messageInput = document.getElementById('message');
+    const sendBtn = document.getElementById('sendBtn');
+
+    const client = new WebTorrent();
+    let wire = null;
+
+    async function roomToInfoHash(room) {
+      const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(room));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    (async () => {
+      const infoHash = await roomToInfoHash(roomId);
+      const magnetURI = `magnet:?xt=urn:btih:${infoHash}&dn=webtorrent-chat-${roomId}`;
+
+      // Use a small dummy buffer as the "file" to seed
+      const binary = "Hello, this is a WebTorrent chat test!";
+      const dummy = new Blob([Uint8Array.from(binary, c => c.charCodeAt(0))]);
+      client.seed(dummy, { name: roomId }, torrent => {
+        torrent.on('wire', setupWire);
+      });
+
+      // Connect to the room as a peer
+      client.add(magnetURI, torrent => {
+        torrent.on('wire', setupWire);
+      });
+    })();
+
+    sendBtn.onclick = () => {
+      if (wire) {
+        const msg = messageInput.value;
+        // Send as ut_metadata extension message (hacky)
+        wire.extended('ut_metadata', new TextEncoder().encode(msg));
+        chatDiv.textContent += "You: " + msg + "\n";
+        messageInput.value = "";
+      }
+    };
+
+    function decodeBencodeString(buf) {
+      // Only decode if it's a bencoded string (e.g. "4:test")
+      const str = new TextDecoder().decode(buf);
+      const match = str.match(/^(\d+):/);
+      if (match) {
+        const len = parseInt(match[1], 10);
+        // Defensive: only return if the string is the right length
+        if (str.length >= match[0].length + len) {
+          return str.substr(match[0].length, len);
+        }
+      }
+      // Fallback: return error
+      return new Error("Not a valid bencoded string");
+    }
+
+    // Listen for ut_metadata extension messages
+    function setupWire(w) {
+      wire = w;
+      statusDiv.textContent = "Status: Connected!";
+      chatDiv.textContent += "[system] Peer connected\n";
+      wire.on('extended', (ext, buf) => {
+        if (ext === 'ut_metadata' && buf) {
+          try {
+            const msg = decodeBencodeString(buf);
+            chatDiv.textContent += "Peer: " + msg + "\n";
+          } catch { }
+        }
+      });
+    }
+
+    // For handling when we are redirected here from spotify auth
+    const spotifyStatusDiv = document.getElementById('spotifyStatus');
+    const spotifyAuth = new SpotifyAuth({
+      onStatus: msg => spotifyStatusDiv.textContent = msg,
+      onAuthSuccess: (msg, data) => {
+        spotifyStatusDiv.textContent = msg
+        console.log(msg, data);
+      },
+      onAuthFail: (msg, data) => spotifyStatusDiv.textContent = msg,
+      onMissingVerifier: msg => spotifyStatusDiv.textContent = msg,
+      onNoCode: msg => spotifyStatusDiv.textContent = "Not logged in",
+    });
+    spotifyAuth.onPageLoad();
+
+    // Trigger redirect back to this same page but go through the Spotify auth flow
+    document.getElementById('spotifyLoginBtn').onclick = () => spotifyAuth.authenticateAndReload();
+  </script>
+</body>
+
+</html>
