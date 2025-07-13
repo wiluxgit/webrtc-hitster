@@ -24,6 +24,7 @@
   <button onclick="createAnswer()">Create Answer</button>
   <textarea id="answer" placeholder="Paste answer here if you're the offerer..."></textarea>
 
+  <div id="connectionStatus">Status: Disconnected</div>
   <h2>Chat</h2>
   <input id="message" placeholder="Type a message" />
   <button onclick="sendMessage()">Send</button>
@@ -33,14 +34,41 @@
     let pc = new RTCPeerConnection();
     let dc = pc.createDataChannel("chat");
     let chat = document.getElementById('chat');
+    let statusDiv = document.getElementById('connectionStatus');
     let isMakingOffer = false;
     let isMakingAnswer = false;
 
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("offer").value = "";
+      document.getElementById("answer").value = "";
+      document.getElementById("message").value = "";
+      document.getElementById("chat").textContent = "";
+    });
+
     dc.onmessage = (e) => chat.textContent += "Peer: " + e.data + "\n";
+
+    function updateStatus(connected, peerLabel = "unknown") {
+      statusDiv.textContent = connected
+        ? `Status: Connected to "${peerLabel}"`
+        : "Status: Disconnected";
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected") {
+        updateStatus(true);
+      } else if (pc.connectionState === "disconnected" || pc.connectionState === "closed" || pc.connectionState === "failed") {
+        updateStatus(false);
+      }
+    };
+
+    dc.onopen = () => updateStatus(true);
+    dc.onclose = () => updateStatus(false);
 
     pc.ondatachannel = (event) => {
       dc = event.channel;
       dc.onmessage = (e) => chat.textContent += "Peer: " + e.data + "\n";
+      dc.onopen = () => updateStatus(true);
+      dc.onclose = () => updateStatus(false);
     };
 
     pc.onicecandidate = () => {
@@ -51,9 +79,17 @@
       }
     };
 
+    function toBase64Json(obj) {
+      // Encode JSON as UTF-8, then base64
+      return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+    }
+    function fromBase64Json(str) {
+      return JSON.parse(decodeURIComponent(escape(atob(str))));
+    }
+
     pc.onicecandidate = () => {
       if (pc.iceGatheringState === "complete") {
-        const desc = JSON.stringify(pc.localDescription);
+        const desc = toBase64Json(pc.localDescription);
         if (isMakingOffer) {
           document.getElementById("offer").value = desc;
           isMakingOffer = false;
@@ -72,7 +108,7 @@
 
     async function createAnswer() {
       isMakingAnswer = true;
-      const offer = JSON.parse(document.getElementById("offer").value);
+      const offer = fromBase64Json(document.getElementById("offer").value);
       await pc.setRemoteDescription(offer);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -80,14 +116,14 @@
 
     // Called after setting localDescription manually
     async function acceptAnswer() {
-      const answer = JSON.parse(document.getElementById("answer").value);
+      const answer = fromBase64Json(document.getElementById("answer").value);
       await pc.setRemoteDescription(answer);
     }
 
     // Try to auto-detect and accept pasted answer
     document.getElementById("answer").addEventListener("input", () => {
       try {
-        const a = JSON.parse(document.getElementById("answer").value);
+        const a = fromBase64Json(document.getElementById("answer").value);
         if (a && a.type === "answer") acceptAnswer();
       } catch { }
     });
