@@ -17,7 +17,7 @@
 </head>
 
 <body>
-  <h1>10:05</h1>
+  <h1>10:25</h1>
   <h2>Step 1: Create or Paste an Offer</h2>
   <button onclick="createOffer()">Create Offer</button>
   <textarea id="offer" placeholder="Paste offer here if you're the answerer..."></textarea>
@@ -93,17 +93,33 @@
       }
     };
 
-    function toBase64Json(obj) {
-      // Encode JSON as UTF-8, then base64
-      return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-    }
-    function fromBase64Json(str) {
-      return JSON.parse(decodeURIComponent(escape(atob(str))));
+    // Compress JSON using CompressionStream and base64 encode
+    async function toGzip64Json(obj) {
+      const json = JSON.stringify(obj);
+      const encoder = new TextEncoder();
+      const input = encoder.encode(json);
+      const cs = new CompressionStream('gzip');
+      const compressedStream = new Blob([input]).stream().pipeThrough(cs);
+      const compressed = await new Response(compressedStream).arrayBuffer();
+      // Convert ArrayBuffer to binary string for btoa
+      const binary = String.fromCharCode(...new Uint8Array(compressed));
+      return btoa(binary);
     }
 
-    pc.onicecandidate = () => {
+    // Decompress base64-encoded compressed JSON
+    async function fromGzip64Json(str) {
+      const binary = atob(str);
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      const ds = new DecompressionStream('gzip');
+      const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
+      const decompressed = await new Response(decompressedStream).arrayBuffer();
+      const decoder = new TextDecoder();
+      return JSON.parse(decoder.decode(decompressed));
+    }
+
+    pc.onicecandidate = async () => {
       if (pc.iceGatheringState === "complete") {
-        const desc = toBase64Json(pc.localDescription);
+        const desc = await toGzip64Json(pc.localDescription);
         if (isMakingOffer) {
           document.getElementById("offer").value = desc;
           isMakingOffer = false;
@@ -129,21 +145,21 @@
         }
         pc.addEventListener("icegatheringstatechange", check);
       });
-      const desc = toBase64Json(pc.localDescription);
+      const desc = await toGzip64Json(pc.localDescription);
       const base =
         location.origin === "null"
           ? location.href.split('?')[0]
           : location.origin + location.pathname;
       const url = `${base}?offer=${encodeURIComponent(desc)}`;
       await navigator.clipboard.writeText(url);
-      alert("Share this link with your peer! (Copied to clipboard)");
+      alert("Copied off url to clipboard. Share this link with your peer!");
       document.getElementById("offer").value = desc;
       isMakingOffer = false;
     }
 
     async function createAnswer() {
       isMakingAnswer = true;
-      const offer = fromBase64Json(document.getElementById("offer").value);
+      const offer = await fromGzip64Json(document.getElementById("offer").value);
       await pc.setRemoteDescription(offer);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -151,14 +167,14 @@
 
     // Called after setting localDescription manually
     async function acceptAnswer() {
-      const answer = fromBase64Json(document.getElementById("answer").value);
+      const answer = await fromGzip64Json(document.getElementById("answer").value);
       await pc.setRemoteDescription(answer);
     }
 
     // Try to auto-detect and accept pasted answer
-    document.getElementById("answer").addEventListener("input", () => {
+    document.getElementById("answer").addEventListener("input", async () => {
       try {
-        const a = fromBase64Json(document.getElementById("answer").value);
+        const a = await fromGzip64Json(document.getElementById("answer").value);
         if (a && a.type === "answer") acceptAnswer();
       } catch { }
     });
