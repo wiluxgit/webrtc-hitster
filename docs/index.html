@@ -1,12 +1,20 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>Serverless WebRTC (Copy-Paste)</title>
   <style>
-    textarea { width: 100%; height: 120px; }
-    button { margin: 5px 0; }
+    textarea {
+      width: 100%;
+      height: 120px;
+    }
+
+    button {
+      margin: 5px 0;
+    }
   </style>
 </head>
+
 <body>
   <h2>Step 1: Create or Paste an Offer</h2>
   <button onclick="createOffer()">Create Offer</button>
@@ -25,6 +33,8 @@
     let pc = new RTCPeerConnection();
     let dc = pc.createDataChannel("chat");
     let chat = document.getElementById('chat');
+    let isMakingOffer = false;
+    let isMakingAnswer = false;
 
     dc.onmessage = (e) => chat.textContent += "Peer: " + e.data + "\n";
 
@@ -41,12 +51,27 @@
       }
     };
 
+    pc.onicecandidate = () => {
+      if (pc.iceGatheringState === "complete") {
+        const desc = JSON.stringify(pc.localDescription);
+        if (isMakingOffer) {
+          document.getElementById("offer").value = desc;
+          isMakingOffer = false;
+        } else if (isMakingAnswer) {
+          document.getElementById("answer").value = desc;
+          isMakingAnswer = false;
+        }
+      }
+    };
+
     async function createOffer() {
+      isMakingOffer = true;
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
     }
 
     async function createAnswer() {
+      isMakingAnswer = true;
       const offer = JSON.parse(document.getElementById("offer").value);
       await pc.setRemoteDescription(offer);
       const answer = await pc.createAnswer();
@@ -64,7 +89,7 @@
       try {
         const a = JSON.parse(document.getElementById("answer").value);
         if (a && a.type === "answer") acceptAnswer();
-      } catch {}
+      } catch { }
     });
 
     function sendMessage() {
@@ -74,4 +99,5 @@
     }
   </script>
 </body>
+
 </html>
