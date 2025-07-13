@@ -20,6 +20,13 @@ function generateRandomString(length) {
     return Array.from(array, dec => ('0' + dec.toString(16)).substr(-2)).join('');
 }
 
+function setLocalStorageToken(token) {
+    localStorage.setItem('spotify_access_token', token);
+}
+function getLocalStorageToken() {
+    return localStorage.getItem('spotify_access_token');
+}
+
 export class SpotifyAuth {
     constructor(handlers = {}) {
         // handlers: { onStatus, onAuthSuccess, onAuthFail, onMissingVerifier, onNoCode }
@@ -32,6 +39,13 @@ export class SpotifyAuth {
     }
 
     async init() {
+        // Check for access token in localStorage first
+        const storedToken = getLocalStorageToken();
+        if (storedToken) {
+            this.onAuthSuccess("Spotify Authenticated! (from localStorage)", { access_token: storedToken });
+            return;
+        }
+
         const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
         if (code) {
@@ -57,9 +71,9 @@ export class SpotifyAuth {
 
             const data = await response.json();
             if (data.access_token) {
+                setLocalStorageToken(data.access_token);
                 this.onAuthSuccess("Spotify Authenticated!", data);
                 // Optionally, store the token or use it for API calls
-                // localStorage.setItem('spotify_access_token', data.access_token);
             } else {
                 this.onAuthFail("Spotify Auth failed.", data);
             }

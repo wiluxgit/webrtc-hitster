@@ -27,6 +27,8 @@
 </head>
 
 <body>
+  <button id="clearLocalStorageBtn">DEBUG: Clear localStorage</button>
+
   <h2>WebTorrent Chat</h2>
   <div id="status">Status: Not connected</div>
   <div>
@@ -34,6 +36,8 @@
     <button id="sendBtn">Send</button>
   </div>
   <div id="chat"></div>
+
+  <h2>Spotify</h2>
   <div id="share"></div>
   <div id="spotify-auth">
     <button id="spotifyLoginBtn">Login with Spotify</button>
@@ -42,6 +46,13 @@
   <script type="module">
     import { SpotifyAuth } from './modules/spotifyAuth.mjs';
     import { WebTorrentSession } from './modules/webTorrentSession.mjs';
+
+    // Clear localStorage for debugging purposes (delets spotify auth tokens)
+    document.getElementById('clearLocalStorageBtn').onclick = () => {
+      localStorage.clear();
+      alert('localStorage cleared!');
+      location.reload();
+    };
 
     // Generate a random room id if not present in URL
     function getRoomId() {
