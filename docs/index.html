@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Serverless WebRTC (Copy-Paste)</title>
+  <style>
+    textarea { width: 100%; height: 120px; }
+    button { margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h2>Step 1: Create or Paste an Offer</h2>
+  <button onclick="createOffer()">Create Offer</button>
+  <textarea id="offer" placeholder="Paste offer here if you're the answerer..."></textarea>
+
+  <h2>Step 2: Create or Paste an Answer</h2>
+  <button onclick="createAnswer()">Create Answer</button>
+  <textarea id="answer" placeholder="Paste answer here if you're the offerer..."></textarea>
+
+  <h2>Chat</h2>
+  <input id="message" placeholder="Type a message" />
+  <button onclick="sendMessage()">Send</button>
+  <pre id="chat"></pre>
+
+  <script>
+    let pc = new RTCPeerConnection();
+    let dc = pc.createDataChannel("chat");
+    let chat = document.getElementById('chat');
+
+    dc.onmessage = (e) => chat.textContent += "Peer: " + e.data + "\n";
+
+    pc.ondatachannel = (event) => {
+      dc = event.channel;
+      dc.onmessage = (e) => chat.textContent += "Peer: " + e.data + "\n";
+    };
+
+    pc.onicecandidate = () => {
+      // Wait for ICE gathering to complete
+      if (pc.iceGatheringState === "complete") {
+        document.getElementById("offer").value = JSON.stringify(pc.localDescription);
+        document.getElementById("answer").value = JSON.stringify(pc.localDescription);
+      }
+    };
+
+    async function createOffer() {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+    }
+
+    async function createAnswer() {
+      const offer = JSON.parse(document.getElementById("offer").value);
+      await pc.setRemoteDescription(offer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+    }
+
+    // Called after setting localDescription manually
+    async function acceptAnswer() {
+      const answer = JSON.parse(document.getElementById("answer").value);
+      await pc.setRemoteDescription(answer);
+    }
+
+    // Try to auto-detect and accept pasted answer
+    document.getElementById("answer").addEventListener("input", () => {
+      try {
+        const a = JSON.parse(document.getElementById("answer").value);
+        if (a && a.type === "answer") acceptAnswer();
+      } catch {}
+    });
+
+    function sendMessage() {
+      const msg = document.getElementById("message").value;
+      dc.send(msg);
+      chat.textContent += "You: " + msg + "\n";
+    }
+  </script>
+</body>
+</html>
