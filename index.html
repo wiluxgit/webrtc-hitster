@@ -1,209 +1,248 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="h-full">
 
 <head>
-  <title>WebRTC hitster</title>
-  <!-- Webtorrent -->
-  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Room</title>
 
-  <!-- TailwindCSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            magenta: {
+              500: '#d0006f',
+              700: '#a10056',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script type="module">
+    import { SpotifyAuth } from "./modules/spotifyAuth.mjs";
+    import { WebTorrentSession } from "./modules/webTorrentSession.mjs";
+    import { spotifyRequest } from "./modules/spotifyRequest.mjs";
 
-  <!-- Alpine.js -->
-  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    function gameApp() {
+      return {
+        roomJoined: false,
+        roomId: '',
+        username: 'RandomPlayerName',
+        joinLink: '',
+        currentTrack: 'Chill Vibes - DJ Flow',
+        showSidebar: false,
+        roomMembers: [
+          {id: 0, name: "You"}
+        ],
+        roomStatus: "?",
+        roomChat: "",
+        webTorrentSession: null,
 
-  <!-- SortableJS -->
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+        init() {
+          if (this.roomJoined === false) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const room = urlParams.get('room');
+            if (room) {
+              this.tryEnterRoom(room)
+            }
+          }
+        },
+        tryEnterRoom(roomId) {
+          if (typeof roomId !== 'string' || roomId.length !== 8) {
+            alert(`Invalid roomId: \"${roomId}\"\n`);
+          }
+          console.trace(`Entering Room: \"${roomId}\"`);
 
-  <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
-</head>
+          const url = new URL(window.location.href);
+          url.searchParams.set("room", roomId);
+          history.replaceState({}, "", url);
 
-<body class="w-full justify-center">
-  <div class="w-full">
-    <button id="clearLocalStorageBtn">DEBUG: Clear localStorage</button>
+          this.roomId = roomId;
+          this.roomJoined = true;
+          this.roomStatus = "Waiting for people to join..."
+          this.webTorrentSession = new WebTorrentSession({
+            roomId: roomId,
+            onStatus: msg => {
+              this.roomStatus = msg;
+            },
+            onChatMessage: msg => {
+              this.roomChat += `Peer: ${msg}\n`;
+            },
+            onSystemMessage: msg => {
+              this.roomChat += `[System]: ${msg}\n`
+            }
+          });
+        },
+        createRoom() {
+          const url = new URL(window.location.href);
+          const roomId = Math.random().toString(36).slice(2, 10).toUpperCase();
+          this.tryEnterRoom(roomId);
+        },
+        joinRoom() {
+          const input = this.joinLink.trim();
+          let room = null;
 
-    <h2>WebTorrent Chat</h2>
-    <div id="status">Status: Not connected</div>
-    <div>
-      <input id="message" placeholder="Type a message" />
-      <button id="sendBtn">Send</button>
-    </div>
-    <div id="chat" class="chat"></div>
+          try {
+            const url = new URL(input);
+            roomId = url.searchParams.get("room");
+          } catch (e) {
+            if (input.length === 8) {
+              roomId = input;
+            }
+          }
+        },
 
-    <h2>Spotify</h2>
-    <div id="share"></div>
-    <div id="spotify-auth">
-      <button id="spotifyLoginBtn">Login with Spotify</button>
-      <div id="spotifyStatus"></div>
-    </div>
+        shareRoom() {
+          navigator.clipboard.writeText(this.roomId);
+          alert('Room ID copied to clipboard!');
+        },
 
-    <div>
-      <input id="spotifyPLsearch" placeholder="Paste a playlist url" />
-      <button id="spotifyPLsubmit">Send</button>
-      <div id="spotifyPLout" class="chat"></div>
-    </div>
+        toggleSidebar() {
+          this.showSidebar = !this.showSidebar;
+        },
 
-    <div>
-      <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
-
-      <ul class="max-w-xl mx-auto gap-2 space-y-2" x-sort x-data='{
         yeargroups: [
           {id: 0, year: "2010", tracks: [
-            {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
-            {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
+              {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
+              {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
           ]},
           {id: 1, year: "2022", tracks: [
-            {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
-            {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
+              {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
+              {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
           ]},
           {id: 2, year: "2023", tracks: [
-            {id: 1, name: "Song C", artist: "Artist 3", preview_url: "z.mp3"},
+              {id: 1, name: "Song C", artist: "Artist 3", preview_url: "z.mp3"},
           ]},
           {id: 3, year: "", new: true, tracks: [
           ]},
         ],
-        init() {
-          const el = this;
-          Sortable.create(this.$el, {
-            animation: 150,
-          });
-        },
-      }' x-init='init'>
-        <template x-for="(yg, yix) in yeargroups" :key="yg.id">
-          <li class="flex flex-row items-center gap-4" x-sort:item>
-            <!-- tracks -->
-            <div class="flex-1 rounded p-2 "
-              :class="yg.new ? 'bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200' : 'bg-gray-200 p-2'">
-              <template x-if="!yg.new">
-                <div class="bg-white rounded shadow">
-                  <template x-for="(track, tix) in yg.tracks" :key="track.id">
-                    <div class="px-3 py-1 flex justify-between items-center">
-                      <div class="font-medium truncate" x-text="track.name"></div>
-                      <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist}`"></div>
+      };
+    }
+
+    // Make global
+    window.gameApp = gameApp;
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js" defer></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+
+<body class="h-full w-full bg-gray-900 text-white dark:text-white"
+  x-data="gameApp()" x-init="init()"
+>
+  <!-- HEADER -->
+  <header class="bg-magenta-700 shadow p-4 text-center">
+    <template x-if="roomJoined">
+      <div>
+        <div class="flex justify-center items-center text-sm space-x-4">
+          <span class="font-bold">Room ID:<span x-text="roomId"></span></span>
+          <button class="bg-white text-magenta-700 font-semibold px-6 py-2 rounded shadow text-lg"
+            @click="shareRoom">Copy Room URL</button>
+        </div>
+        <div class="mt-2 max-w-xs mx-auto">
+          <input x-model="username" class="w-full border rounded px-2 py-1 text-black" placeholder="Your Name" />
+        </div>
+      </div>
+    </template>
+  </header>
+
+  <!-- MAIN -->
+  <div class="flex h-[calc(100%-8rem)]">
+    <!-- Sidebar -->
+    <aside x-show="roomJoined" :class="{'fixed sm:relative z-20 sm:z-0 sm:block': true, 'w-2/3 sm:w-64': true, 'left-0 top-0 h-full sm:h-auto p-4 bg-magenta-500 text-white border-r': true, 'hidden': !showSidebar && window.innerWidth < 640}" x-transition>
+      <div class="font-bold">Room Status:</div>
+      <div class="mb-2" x-text="roomStatus"></div>
+      <div class="font-bold">Room Members</div>
+      <ul class="mb-4">
+        <template x-for="member in roomMembers" :key="member.id">
+          <li x-text="member"></li>
+        </template>
+      </ul>
+      <div class="font-bold mb-1">Chat</div>
+      <div class="bg-magenta-700 p-2 h-40 overflow-y-auto rounded mb-2 text-sm"
+        x-text="roomChat"
+      >
+      </div>
+      <input type="text" class="w-full text-black rounded px-2 py-1" placeholder="Type a message..." />
+    </aside>
+
+    <!-- Toggle Sidebar Handle Button -->
+    <div x-show="roomJoined" class="sm:hidden absolute left-0 top-1/2 z-30">
+      <button class="bg-magenta-700 text-white px-2 py-4 rounded-r shadow" @click="toggleSidebar">
+        <span x-text="showSidebar ? '←' : '→'"></span>
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 mx-auto w-full max-w-md p-4">
+      <template x-if="!roomJoined">
+        <div class="space-y-4 text-center">
+          <button class="w-full bg-magenta-500 text-white p-3 rounded" @click="createRoom">Create Room</button>
+          <div class="flex items-center space-x-2">
+            <input x-model="joinLink" @keyup.enter="joinRoom" class="border px-2 py-1 flex-grow text-black"
+              placeholder="Paste room link or id" />
+            <button class="bg-magenta-700 text-white p-2 rounded" @click="joinRoom">Join Room</button>
+          </div>
+        </div>
+      </template>
+      <template x-if="roomJoined">
+        <div>
+          <p class="text-center mt-4">Welcome to the room, <span x-text="username"></span>!</p>
+          <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
+
+          <ul class="max-w-xl mx-auto gap-2 space-y-2" x-sort
+            x-init='function(){
+              Sortable.create($el, {
+                 animation: 150,
+              });
+            }'
+          >
+            <template x-for="(yg, yix) in yeargroups" :key="yg.id">
+              <li class="flex flex-row items-center gap-4" x-sort:item>
+                <!-- tracks -->
+                <div class="flex-1 rounded p-2 "
+                  :class="yg.new ? 'bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200' : 'bg-gray-200 p-2'">
+                  <template x-if="!yg.new">
+                    <div class="bg-white rounded shadow">
+                      <template x-for="(track, tix) in yg.tracks" :key="track.id">
+                        <div class="px-3 py-1 flex justify-between items-center">
+                          <div class="font-medium truncate" x-text="track.name"></div>
+                          <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist}`"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="yg.new">
+                    <div class="text-center flex justify-between items-center text-white">
+                      <div>⠿</div>
+                      <div>Drag and drop</div>
+                      <div>⠿</div>
                     </div>
                   </template>
                 </div>
-              </template>
-              <template x-if="yg.new">
-                <div class="text-center flex justify-between items-center text-white">
-                  <div>⠿</div>
-                  <div>Drag and drop</div>
-                  <div>⠿</div>
-                </div>
-              </template>
-            </div>
 
-            <!-- Year -->
-            <template x-if="!yg.new">
-              <span class="font-bold text-center text-gray-400" x-text="yg.year"></span>
+                <!-- Year -->
+                <template x-if="!yg.new">
+                  <span class="font-bold text-center text-gray-400" x-text="yg.year"></span>
+                </template>
+              </li>
             </template>
-          </li>
-        </template>
-      </ul>
-
-      <footer
-        class="w-full fixed bottom-0 bg-gray-900 text-white px-6 py-4 flex items-center justify-between shadow-lg">
-        <!-- Left: Audio preview -->
-        <div class="flex items-center space-x-4">
-          <audio controls class="h-10">
-            <source src="your-audio-file.mp3" type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
-          <span class="text-sm text-gray-300">Unknown song</span>
+          </ul>
         </div>
-
-        <!-- Right: Submit button -->
-        <button
-          class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
-          Submit on timeline
-        </button>
-      </footer>
-    </div>
-
-
-    <script type="module">
-      import { SpotifyAuth } from "./modules/spotifyAuth.mjs";
-      import { WebTorrentSession } from "./modules/webTorrentSession.mjs";
-      import { spotifyRequest } from "./modules/spotifyRequest.mjs";
-
-      // Clear localStorage for debugging purposes (delets spotify auth tokens)
-      document.getElementById("clearLocalStorageBtn").onclick = () => {
-        localStorage.clear();
-        alert("localStorage cleared!");
-        location.reload();
-      };
-
-      // Generate a random room id if not present in URL
-      function getRoomId() {
-        const url = new URL(window.location.href);
-        let room = url.searchParams.get("room");
-        if (!room) {
-          room = Math.random().toString(36).slice(2, 10);
-          url.searchParams.set("room", room);
-          history.replaceState({}, "", url);
-        }
-        return room;
-      }
-      const roomId = getRoomId();
-
-      // Initialize WebTorrent session
-      const statusDiv = document.getElementById("status");
-      const chatDiv = document.getElementById("chat");
-      const session = new WebTorrentSession({
-        roomId: roomId,
-        onStatus: msg => statusDiv.textContent = msg,
-        onChatMessage: msg => {
-          chatDiv.textContent += `Peer: ${msg}\n`;
-        },
-        onSystemMessage: msg => {
-          chatDiv.textContent += `[System]: ${msg}\n`
-        }
-      });
-
-      // Hook how to send text into WebTorrent session
-      document.getElementById("sendBtn").onclick = () => {
-        const msg = document.getElementById("message").value;
-        chatDiv.textContent += `You: ${msg}\n`;
-        session.sendMessage(msg);
-        document.getElementById("message").value = "";
-      };
-
-      // Setup handling when we are redirected here from spotify auth
-      let accessToken = null;
-      const spotifyStatusDiv = document.getElementById("spotifyStatus");
-      const spotifyAuth = new SpotifyAuth({
-        onStatus: msg => spotifyStatusDiv.textContent = msg,
-        onAuthSuccess: (msg, data) => {
-          spotifyStatusDiv.textContent = msg
-          console.log(msg, data);
-          accessToken = data.access_token;
-        },
-        onAuthFail: (msg, data) => spotifyStatusDiv.textContent = msg,
-        onMissingVerifier: msg => spotifyStatusDiv.textContent = msg,
-        onNoCode: msg => spotifyStatusDiv.textContent = "Not logged in",
-      });
-
-      // Trigger redirect back to this same page but go through the Spotify auth flow
-      document.getElementById("spotifyLoginBtn").onclick = () => spotifyAuth.authenticateAndReload();
-
-      // Handle Spotify playlist search
-      const spotifyPLsearch = document.getElementById("spotifyPLsearch");
-      const spotifyPLsubmit = document.getElementById("spotifyPLsubmit");
-      const spotifyPLout = document.getElementById("spotifyPLout");
-
-      spotifyPLsubmit.onclick = () => {
-        spotifyRequest.getPlaylistTracks(accessToken, spotifyPLsearch.value)
-          .then(tracks => {
-            spotifyPLsearch.value = "";
-            console.log("Fetched tracks:", tracks);
-          })
-          .catch(err => {
-            console.error("Error fetching playlist:", err);
-            spotifyPLout.textContent = "Error fetching playlist";
-          });
-      }
-    </script>
+      </template>
+    </main>
   </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-magenta-700 shadow p-4 text-center fixed bottom-0 w-full">
+    <div class="text-sm">Now Playing: <span x-text="currentTrack"></span></div>
+  </footer>
+
+
 </body>
 
 </html>

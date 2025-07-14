@@ -41,8 +41,8 @@ export class WebTorrentSession {
         console.log("Connecting to room:", this.roomId, "Magnet URI:", magnetURI);
 
         // Use a small dummy buffer as the "file" to seed
-        const binary = "Hello, this is a WebTorrent chat test!";
-        const dummy = new Blob([Uint8Array.from(binary, c => c.charCodeAt(0))]);
+        const seedData = "Hello, this is a WebTorrent chat test!";
+        const dummy = new Blob([Uint8Array.from(seedData, c => c.charCodeAt(0))]);
         this.client.seed(dummy, { name: this.roomId }, torrent => {
             torrent.on('wire', w => this.setupWire(w));
         });
