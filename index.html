@@ -16,56 +16,37 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
   <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
-  <style>
-    body {
-      font-family: sans-serif;
-      max-width: 500px;
-      margin: 2em auto;
-    }
-
-    textarea {
-      width: 100%;
-      height: 100px;
-    }
-
-    .chat {
-      background: #eee;
-      padding: 1em;
-      min-height: 100px;
-      white-space: pre-wrap;
-    }
-  </style>
 </head>
 
-<body>
-  <button id="clearLocalStorageBtn">DEBUG: Clear localStorage</button>
+<body class="w-full justify-center">
+  <div class="w-full">
+    <button id="clearLocalStorageBtn">DEBUG: Clear localStorage</button>
 
-  <h2>WebTorrent Chat</h2>
-  <div id="status">Status: Not connected</div>
-  <div>
-    <input id="message" placeholder="Type a message" />
-    <button id="sendBtn">Send</button>
-  </div>
-  <div id="chat" class="chat"></div>
+    <h2>WebTorrent Chat</h2>
+    <div id="status">Status: Not connected</div>
+    <div>
+      <input id="message" placeholder="Type a message" />
+      <button id="sendBtn">Send</button>
+    </div>
+    <div id="chat" class="chat"></div>
 
-  <h2>Spotify</h2>
-  <div id="share"></div>
-  <div id="spotify-auth">
-    <button id="spotifyLoginBtn">Login with Spotify</button>
-    <div id="spotifyStatus"></div>
-  </div>
+    <h2>Spotify</h2>
+    <div id="share"></div>
+    <div id="spotify-auth">
+      <button id="spotifyLoginBtn">Login with Spotify</button>
+      <div id="spotifyStatus"></div>
+    </div>
 
-  <div>
-    <input id="spotifyPLsearch" placeholder="Paste a playlist url" />
-    <button id="spotifyPLsubmit">Send</button>
-    <div id="spotifyPLout" class="chat"></div>
-  </div>
+    <div>
+      <input id="spotifyPLsearch" placeholder="Paste a playlist url" />
+      <button id="spotifyPLsubmit">Send</button>
+      <div id="spotifyPLout" class="chat"></div>
+    </div>
 
-  <div class="max-w-xl mx-auto">
-    <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
+    <div>
+      <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
 
-    <ul x-sort class="space-y-2"
-      x-data='{
+      <ul class="max-w-xl mx-auto gap-2 space-y-2" x-sort x-data='{
         yeargroups: [
           {id: 0, year: "2010", tracks: [
             {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
@@ -87,126 +68,142 @@
             animation: 150,
           });
         },
-      }'
-      x-init='init'
-    >
-      <template x-for="(yg, yix) in yeargroups" :key="yg.id">
-        <li class="flex flex-row items-center gap-4" x-sort:item>
-          <!-- tracks -->
-          <div
-            :data-id="yg.id"
-            class="flex-1 rounded shadow"
-            :class="yg.new ? 'bg-blue-400 p-6' : 'bg-gray-200 p-2'"
-          >
+      }' x-init='init'>
+        <template x-for="(yg, yix) in yeargroups" :key="yg.id">
+          <li class="flex flex-row items-center gap-4" x-sort:item>
+            <!-- tracks -->
+            <div class="flex-1 rounded p-2 "
+              :class="yg.new ? 'bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200' : 'bg-gray-200 p-2'">
+              <template x-if="!yg.new">
+                <div class="bg-white rounded shadow">
+                  <template x-for="(track, tix) in yg.tracks" :key="track.id">
+                    <div class="px-3 py-1 flex justify-between items-center">
+                      <div class="font-medium truncate" x-text="track.name"></div>
+                      <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist}`"></div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <template x-if="yg.new">
+                <div class="text-center flex justify-between items-center text-white">
+                  <div>⠿</div>
+                  <div>Drag and drop</div>
+                  <div>⠿</div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Year -->
             <template x-if="!yg.new">
-              <div class="bg-white rounded shadow">
-                <template x-for="(track, tix) in yg.tracks" :key="track.id">
-                  <div class="px-3 py-1 flex justify-between items-center">
-                    <div class="font-medium truncate" x-text="track.name"></div>
-                    <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist}`"></div>
-                  </div>
-                </template>
-              </div>
+              <span class="font-bold text-center text-gray-400" x-text="yg.year"></span>
             </template>
-            <template x-if="yg.new">
-              <div class="text-center">
-                Unknown Song (Currently playing). Drag and drop
-              </div>
-            </template>
-          </div>
+          </li>
+        </template>
+      </ul>
 
-          <!-- Year -->
-          <template x-if="!yg.new">
-            <span class="font-bold text-center text-gray-400" x-text="yg.year"></span>
-          </template>
-        </li>
-      </template>
-    </ul>
+      <footer
+        class="w-full fixed bottom-0 bg-gray-900 text-white px-6 py-4 flex items-center justify-between shadow-lg">
+        <!-- Left: Audio preview -->
+        <div class="flex items-center space-x-4">
+          <audio controls class="h-10">
+            <source src="your-audio-file.mp3" type="audio/mpeg" />
+            Your browser does not support the audio element.
+          </audio>
+          <span class="text-sm text-gray-300">Unknown song</span>
+        </div>
+
+        <!-- Right: Submit button -->
+        <button
+          class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+          Submit on timeline
+        </button>
+      </footer>
+    </div>
+
+
+    <script type="module">
+      import { SpotifyAuth } from "./modules/spotifyAuth.mjs";
+      import { WebTorrentSession } from "./modules/webTorrentSession.mjs";
+      import { spotifyRequest } from "./modules/spotifyRequest.mjs";
+
+      // Clear localStorage for debugging purposes (delets spotify auth tokens)
+      document.getElementById("clearLocalStorageBtn").onclick = () => {
+        localStorage.clear();
+        alert("localStorage cleared!");
+        location.reload();
+      };
+
+      // Generate a random room id if not present in URL
+      function getRoomId() {
+        const url = new URL(window.location.href);
+        let room = url.searchParams.get("room");
+        if (!room) {
+          room = Math.random().toString(36).slice(2, 10);
+          url.searchParams.set("room", room);
+          history.replaceState({}, "", url);
+        }
+        return room;
+      }
+      const roomId = getRoomId();
+
+      // Initialize WebTorrent session
+      const statusDiv = document.getElementById("status");
+      const chatDiv = document.getElementById("chat");
+      const session = new WebTorrentSession({
+        roomId: roomId,
+        onStatus: msg => statusDiv.textContent = msg,
+        onChatMessage: msg => {
+          chatDiv.textContent += `Peer: ${msg}\n`;
+        },
+        onSystemMessage: msg => {
+          chatDiv.textContent += `[System]: ${msg}\n`
+        }
+      });
+
+      // Hook how to send text into WebTorrent session
+      document.getElementById("sendBtn").onclick = () => {
+        const msg = document.getElementById("message").value;
+        chatDiv.textContent += `You: ${msg}\n`;
+        session.sendMessage(msg);
+        document.getElementById("message").value = "";
+      };
+
+      // Setup handling when we are redirected here from spotify auth
+      let accessToken = null;
+      const spotifyStatusDiv = document.getElementById("spotifyStatus");
+      const spotifyAuth = new SpotifyAuth({
+        onStatus: msg => spotifyStatusDiv.textContent = msg,
+        onAuthSuccess: (msg, data) => {
+          spotifyStatusDiv.textContent = msg
+          console.log(msg, data);
+          accessToken = data.access_token;
+        },
+        onAuthFail: (msg, data) => spotifyStatusDiv.textContent = msg,
+        onMissingVerifier: msg => spotifyStatusDiv.textContent = msg,
+        onNoCode: msg => spotifyStatusDiv.textContent = "Not logged in",
+      });
+
+      // Trigger redirect back to this same page but go through the Spotify auth flow
+      document.getElementById("spotifyLoginBtn").onclick = () => spotifyAuth.authenticateAndReload();
+
+      // Handle Spotify playlist search
+      const spotifyPLsearch = document.getElementById("spotifyPLsearch");
+      const spotifyPLsubmit = document.getElementById("spotifyPLsubmit");
+      const spotifyPLout = document.getElementById("spotifyPLout");
+
+      spotifyPLsubmit.onclick = () => {
+        spotifyRequest.getPlaylistTracks(accessToken, spotifyPLsearch.value)
+          .then(tracks => {
+            spotifyPLsearch.value = "";
+            console.log("Fetched tracks:", tracks);
+          })
+          .catch(err => {
+            console.error("Error fetching playlist:", err);
+            spotifyPLout.textContent = "Error fetching playlist";
+          });
+      }
+    </script>
   </div>
-
-
-  <script type="module">
-    import { SpotifyAuth } from "./modules/spotifyAuth.mjs";
-    import { WebTorrentSession } from "./modules/webTorrentSession.mjs";
-    import { spotifyRequest } from "./modules/spotifyRequest.mjs";
-
-    // Clear localStorage for debugging purposes (delets spotify auth tokens)
-    document.getElementById("clearLocalStorageBtn").onclick = () => {
-      localStorage.clear();
-      alert("localStorage cleared!");
-      location.reload();
-    };
-
-    // Generate a random room id if not present in URL
-    function getRoomId() {
-      const url = new URL(window.location.href);
-      let room = url.searchParams.get("room");
-      if (!room) {
-        room = Math.random().toString(36).slice(2, 10);
-        url.searchParams.set("room", room);
-        history.replaceState({}, "", url);
-      }
-      return room;
-    }
-    const roomId = getRoomId();
-
-    // Initialize WebTorrent session
-    const statusDiv = document.getElementById("status");
-    const chatDiv = document.getElementById("chat");
-    const session = new WebTorrentSession({
-      roomId: roomId,
-      onStatus: msg => statusDiv.textContent = msg,
-      onChatMessage: msg => {
-        chatDiv.textContent += `Peer: ${msg}\n`;
-      },
-      onSystemMessage: msg => {
-        chatDiv.textContent += `[System]: ${msg}\n`
-      }
-    });
-
-    // Hook how to send text into WebTorrent session
-    document.getElementById("sendBtn").onclick = () => {
-      const msg = document.getElementById("message").value;
-      chatDiv.textContent += `You: ${msg}\n`;
-      session.sendMessage(msg);
-      document.getElementById("message").value = "";
-    };
-
-    // Setup handling when we are redirected here from spotify auth
-    let accessToken = null;
-    const spotifyStatusDiv = document.getElementById("spotifyStatus");
-    const spotifyAuth = new SpotifyAuth({
-      onStatus: msg => spotifyStatusDiv.textContent = msg,
-      onAuthSuccess: (msg, data) => {
-        spotifyStatusDiv.textContent = msg
-        console.log(msg, data);
-        accessToken = data.access_token;
-      },
-      onAuthFail: (msg, data) => spotifyStatusDiv.textContent = msg,
-      onMissingVerifier: msg => spotifyStatusDiv.textContent = msg,
-      onNoCode: msg => spotifyStatusDiv.textContent = "Not logged in",
-    });
-
-    // Trigger redirect back to this same page but go through the Spotify auth flow
-    document.getElementById("spotifyLoginBtn").onclick = () => spotifyAuth.authenticateAndReload();
-
-    // Handle Spotify playlist search
-    const spotifyPLsearch = document.getElementById("spotifyPLsearch");
-    const spotifyPLsubmit = document.getElementById("spotifyPLsubmit");
-    const spotifyPLout = document.getElementById("spotifyPLout");
-
-    spotifyPLsubmit.onclick = () => {
-      spotifyRequest.getPlaylistTracks(accessToken, spotifyPLsearch.value)
-        .then(tracks => {
-          spotifyPLsearch.value = "";
-          console.log("Fetched tracks:", tracks);
-        })
-        .catch(err => {
-          console.error("Error fetching playlist:", err);
-          spotifyPLout.textContent = "Error fetching playlist";
-        });
-    }
-  </script>
 </body>
 
 </html>
