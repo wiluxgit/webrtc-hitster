@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="en" x-data="gameApp()" x-init="init()" class="h-full" x-bind:class="{ 'dark': isDark }">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Game Room</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/alpinejs" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -21,6 +26,7 @@
     }
   </script>
 </head>
+
 <body class="h-full w-full bg-gray-900 text-white dark:text-white">
   <!-- HEADER -->
   <header class="bg-magenta-700 shadow p-4 text-center">
@@ -28,7 +34,8 @@
       <div>
         <div class="flex justify-center items-center text-sm space-x-4">
           <span class="font-bold">Room ID: <span x-text="roomId"></span></span>
-          <button class="bg-white text-magenta-700 font-semibold px-6 py-2 rounded shadow text-lg" @click="shareRoom">Share Room</button>
+          <button class="bg-white text-magenta-700 font-semibold px-6 py-2 rounded shadow text-lg"
+            @click="shareRoom">Share Room</button>
         </div>
         <div class="mt-2 max-w-xs mx-auto">
           <input x-model="username" class="w-full border rounded px-2 py-1 text-black" placeholder="Your Name" />
@@ -39,24 +46,8 @@
 
   <!-- MAIN -->
   <div class="flex h-[calc(100%-8rem)]">
-    <!-- Sidebar for all screens -->
-    <aside x-show="roomJoined" class="w-64 bg-magenta-500 text-white border-r p-4 hidden sm:block" x-transition>
-      <div class="font-bold mb-2">Room Members</div>
-      <ul class="mb-4">
-        <template x-for="member in roomMembers" :key="member">
-          <li x-text="member"></li>
-        </template>
-      </ul>
-      <div class="font-bold mb-1">Chat</div>
-      <div class="bg-magenta-700 p-2 h-40 overflow-y-auto rounded mb-2 text-sm">
-        <p><strong>Player1:</strong> Hello!</p>
-        <p><strong>Player2:</strong> Hi there!</p>
-      </div>
-      <input type="text" class="w-full text-black rounded px-2 py-1" placeholder="Type a message..." />
-    </aside>
-
-    <!-- Sidebar for mobile -->
-    <aside x-show="roomJoined && showSidebar" class="sm:hidden w-2/3 bg-magenta-500 text-white border-r p-4 fixed h-full z-20" x-transition>
+    <!-- Sidebar -->
+    <aside x-show="roomJoined" :class="{'fixed sm:relative z-20 sm:z-0 sm:block': true, 'w-2/3 sm:w-64': true, 'left-0 top-0 h-full sm:h-auto p-4 bg-magenta-500 text-white border-r': true, 'hidden': !showSidebar && window.innerWidth < 640}" x-transition>
       <div class="font-bold mb-2">Room Members</div>
       <ul class="mb-4">
         <template x-for="member in roomMembers" :key="member">
@@ -83,15 +74,58 @@
       <template x-if="!roomJoined">
         <div class="space-y-4 text-center">
           <button class="w-full bg-magenta-500 text-white p-3 rounded" @click="createRoom">Create Room</button>
-          <div class="flex flex-col items-center space-y-2">
-            <input x-model="joinLink" class="border px-2 py-1 w-full text-black" placeholder="Paste room link" />
-            <button class="bg-magenta-700 text-white p-2 rounded w-full" @click="joinRoom">Join Room</button>
+          <div class="flex items-center space-x-2">
+            <input x-model="joinLink" @keyup.enter="joinRoom" class="border px-2 py-1 flex-grow text-black"
+              placeholder="Paste room link" />
+            <button class="bg-magenta-700 text-white p-2 rounded" @click="joinRoom">Join Room</button>
           </div>
         </div>
       </template>
       <template x-if="roomJoined">
         <div>
           <p class="text-center mt-4">Welcome to the room, <span x-text="username"></span>!</p>
+          <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
+
+          <ul class="max-w-xl mx-auto gap-2 space-y-2" x-sort x-data='{
+            init() {
+              const el = this;
+              Sortable.create(this.$el, {
+                  animation: 150,
+              });
+            },
+          }' x-init='init'
+          >
+            <template x-for="(yg, yix) in yeargroups" :key="yg.id">
+              <li class="flex flex-row items-center gap-4" x-sort:item>
+                <!-- tracks -->
+                <div class="flex-1 rounded p-2 "
+                  :class="yg.new ? 'bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200' : 'bg-gray-200 p-2'">
+                  <template x-if="!yg.new">
+                    <div class="bg-white rounded shadow">
+                      <template x-for="(track, tix) in yg.tracks" :key="track.id">
+                        <div class="px-3 py-1 flex justify-between items-center">
+                          <div class="font-medium truncate" x-text="track.name"></div>
+                          <div class="text-sm text-gray-600 whitespace-nowrap" x-text="`${track.artist}`"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="yg.new">
+                    <div class="text-center flex justify-between items-center text-white">
+                      <div>⠿</div>
+                      <div>Drag and drop</div>
+                      <div>⠿</div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Year -->
+                <template x-if="!yg.new">
+                  <span class="font-bold text-center text-gray-400" x-text="yg.year"></span>
+                </template>
+              </li>
+            </template>
+          </ul>
         </div>
       </template>
     </main>
@@ -111,7 +145,9 @@
         joinLink: '',
         currentTrack: 'Chill Vibes - DJ Flow',
         showSidebar: false,
-        roomMembers: ['Player'],
+        roomMembers: [
+          {id: 1, name: "Player"}
+        ],
         isDark: true,
 
         init() {
@@ -139,9 +175,26 @@
 
         toggleSidebar() {
           this.showSidebar = !this.showSidebar;
-        }
+        },
+
+        yeargroups: [
+          {id: 0, year: "2010", tracks: [
+              {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
+              {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
+          ]},
+          {id: 1, year: "2022", tracks: [
+              {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
+              {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
+          ]},
+          {id: 2, year: "2023", tracks: [
+              {id: 1, name: "Song C", artist: "Artist 3", preview_url: "z.mp3"},
+          ]},
+          {id: 3, year: "", new: true, tracks: [
+          ]},
+        ],
       };
     }
   </script>
 </body>
+
 </html>
