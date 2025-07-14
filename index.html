@@ -38,7 +38,8 @@
           {id: 0, name: "You"}
         ],
         roomStatus: "?",
-        roomChat: "",
+        roomChatOutput: [],
+        roomChatInput: "",
         webTorrentSession: null,
 
         init() {
@@ -69,10 +70,10 @@
               this.roomStatus = msg;
             },
             onChatMessage: msg => {
-              this.roomChat += `Peer: ${msg}\n`;
+              this.appendMessage("Peer", msg);
             },
             onSystemMessage: msg => {
-              this.roomChat += `[System]: ${msg}\n`
+              this.appendMessage("[System]", msg);
             }
           });
         },
@@ -94,16 +95,29 @@
             }
           }
         },
-
         shareRoom() {
           navigator.clipboard.writeText(this.roomId);
           alert('Room ID copied to clipboard!');
         },
-
         toggleSidebar() {
           this.showSidebar = !this.showSidebar;
         },
+        chatSubmit() {
+          this.appendMessage("You", this.roomChatInput);
+          this.webTorrentSession.sendMessage(this.roomChatInput);
+          this.roomChatInput = "";
+        },
+        appendMessage(sender, text) {
+          const newId = this.roomChatOutput.length
+            ? this.roomChatOutput[this.roomChatOutput.length - 1].id + 1
+            : 0;
 
+          this.roomChatOutput.push({
+            id: newId,
+            sender: sender,
+            text: text
+          });
+        },
         yeargroups: [
           {id: 0, year: "2010", tracks: [
               {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
@@ -139,9 +153,9 @@
     <template x-if="roomJoined">
       <div>
         <div class="flex justify-center items-center text-sm space-x-4">
-          <span class="font-bold">Room ID:<span x-text="roomId"></span></span>
+          <span>Room ID: <span class="font-bold" x-text="roomId"></span></span>
           <button class="bg-white text-magenta-700 font-semibold px-6 py-2 rounded shadow text-lg"
-            @click="shareRoom">Copy Room URL</button>
+            @click="shareRoom">Copy Invite URL</button>
         </div>
         <div class="mt-2 max-w-xs mx-auto">
           <input x-model="username" class="w-full border rounded px-2 py-1 text-black" placeholder="Your Name" />
@@ -163,11 +177,26 @@
         </template>
       </ul>
       <div class="font-bold mb-1">Chat</div>
-      <div class="bg-magenta-700 p-2 h-40 overflow-y-auto rounded mb-2 text-sm"
-        x-text="roomChat"
-      >
+      <div class="bg-magenta-700 p-2 h-40 overflow-y-auto rounded mb-2 text-sm space-y-1">
+        <template x-for="msg in roomChatOutput" :key="msg.id">
+          <div>
+            <span class="font-semibold text-white" x-text="msg.sender + ':'"></span>
+            <span class="text-white" x-text="msg.text"></span>
+          </div>
+        </template>
       </div>
-      <input type="text" class="w-full text-black rounded px-2 py-1" placeholder="Type a message..." />
+      <form @submit.prevent="chatSubmit">
+        <!-- name id autocomplete crap is needed to not autofill -->
+        <input
+          type="text"
+          x-model="roomChatInput"
+          class="w-full text-black rounded px-2 py-1"
+          placeholder="Type a message..."
+          autocomplete="off"
+          name="message_input"
+          id="message_input"
+        />
+      </form>
     </aside>
 
     <!-- Toggle Sidebar Handle Button -->
