@@ -31,8 +31,6 @@ export function randomUsername() {
         screen.colorDepth,
     ].join('||');
     const hash = hashString(fingerprint);
-    console.log(fingerprint, hash)
-
     const adj = adjectives[hash % adjectives.length];
     const noun = nouns[hash % nouns.length];
     return `${adj}${noun}`;

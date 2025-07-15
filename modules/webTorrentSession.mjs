@@ -44,11 +44,13 @@ export class WebTorrentSession {
         const seedData = "Hello, this is a WebTorrent chat test!";
         const dummy = new Blob([Uint8Array.from(seedData, c => c.charCodeAt(0))]);
         this.client.seed(dummy, { name: this.roomId }, torrent => {
+            this.onSystemMessage(`You connected ${this.client.peerId}`);
             torrent.on('wire', w => this.setupWire(w));
         });
 
         // Connect to the room as a peer
         this.client.add(magnetURI, torrent => {
+            this.onSystemMessage(`You connected  ${this.client.peerId}`);
             torrent.on('wire', w => this.setupWire(w));
         });
     }
@@ -64,7 +66,7 @@ export class WebTorrentSession {
     setupWire(w) {
         this.wire = w;
         this.onStatus("Status: Connected!");
-        this.onSystemMessage("Peer connected");
+        this.onSystemMessage(`Peer ${w.peerId} connected`);
         this.wire.on('extended', (ext, buf) => {
             if (ext === 'ut_metadata' && buf) {
                 try {
