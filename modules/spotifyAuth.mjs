@@ -27,33 +27,62 @@ function setLocalStorageToken(token) {
 function getLocalStorageToken() {
     return localStorage.getItem('spotify_access_token');
 }
+function removeLocalStorageToken() {
+    localStorage.removeItem('spotify_access_token');
+}
+async function isTokenValid(token) {
+    try {
+        const res = await fetch('https://api.spotify.com/v1/me', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return res.ok; // true if status is 200–299
+    } catch (err) {
+        return false;
+    }
+}
 
 export class SpotifyAuth {
-    constructor(handlers = {}) {
-        // handlers: { onStatus, onAuthSuccess, onAuthFail, onMissingVerifier, onNoCode }
-        this.onStatus = handlers.onStatus || (() => {});
-        this.onAuthSuccess = handlers.onAuthSuccess || (() => {});
-        this.onAuthFail = handlers.onAuthFail || (() => {});
-        this.onMissingVerifier = handlers.onMissingVerifier || (() => {});
-        this.onNoCode = handlers.onNoCode || (() => {});
+    constructor({
+        onStatus = (msg) => {},
+        onAuthSuccess = (msg, data, callbackStateParam) => {},
+        onAuthFail = (msg, data, callbackStateParam) => {},
+        onNoCode = (msg) => {},
+    } = {}) {
+        this.onStatus = onStatus;
+        this.onAuthSuccess = onAuthSuccess;
+        this.onAuthFail = onAuthFail;
+        this.onNoCode = onNoCode;
         this.init();
     }
 
     async init() {
-        // Check for access token in localStorage first
-        const storedToken = getLocalStorageToken();
-        if (storedToken) {
-            this.onAuthSuccess("Spotify Authenticated! (from localStorage)", { access_token: storedToken });
-            return;
+        let callbackStateParam = null
+        const params = new URLSearchParams(window.location.search);
+        const state = params.get('state');
+        if (state) {
+            try {
+                callbackStateParam = JSON.parse(decodeURIComponent(state));
+                this.onStatus("Recovered oAuth2 state params");
+            } catch(e) {
+                this.onStatus("Could not recover oAuth2 state params");
+            }
         }
 
-        const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
+        const storedToken = getLocalStorageToken();
         if (code) {
+            // Remove the code & state params as they do not matter any more
+            params.delete('code');
+            params.delete('state');
+            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+            history.replaceState({}, document.title, newUrl);
+
             this.onStatus("Exchanging code for token...");
             const codeVerifier = localStorage.getItem('spotify_code_verifier');
             if (!codeVerifier) {
-                this.onMissingVerifier("Missing code verifier. Please try logging in again.");
+                this.onAuthFail("Missing code verifier. Please try logging in again.", codeVerifier);
                 return;
             }
             const body = new URLSearchParams({
@@ -73,18 +102,31 @@ export class SpotifyAuth {
             const data = await response.json();
             if (data.access_token) {
                 setLocalStorageToken(data.access_token);
-                this.onAuthSuccess("Spotify Authenticated!", data);
-                // Optionally, store the token or use it for API calls
+                this.onAuthSuccess("Spotify Authenticated!", data, callbackStateParam);
             } else {
-                this.onAuthFail("Spotify Auth failed.", data);
+                this.onAuthFail("Spotify Auth failed.", data, callbackStateParam);
             }
             window.history.replaceState({}, document.title, window.location.pathname);
-        } else {
-            this.onNoCode("No code found in URL.");
+        } else if (storedToken) {
+            // If this is not a auth callback try with the stored token
+
+            // test if the stored token still works
+            if (await isTokenValid(storedToken)) {
+                this.onAuthSuccess(
+                    "Spotify Authenticated! (cached)",
+                    { access_token: storedToken },
+                    null
+                );
+                return;
+            } else {
+                removeLocalStorageToken();
+                this.onAuthFail("Stored token invalid or expired. Re-authentication needed.", null, callbackStateParam);
+            }
         }
     }
 
-    async authenticateAndReload() {
+    async authenticateAndReload(callbackStateParam) {
+        const stateString = encodeURIComponent(JSON.stringify(callbackStateParam));
         const codeVerifier = generateRandomString(64);
         const codeChallenge = await generateCodeChallenge(codeVerifier);
         localStorage.setItem('spotify_code_verifier', codeVerifier);
@@ -95,7 +137,8 @@ export class SpotifyAuth {
             scope: scopes,
             redirect_uri: redirectUri,
             code_challenge_method: 'S256',
-            code_challenge: codeChallenge
+            code_challenge: codeChallenge,
+            state: stateString,
         });
         this.onStatus('Redirecting to Spotify for authentication...');
         window.location = 'https://accounts.spotify.com/authorize?' + params.toString();
