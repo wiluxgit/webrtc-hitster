@@ -2,6 +2,11 @@
 // @module
 
 /**
+ * @typedef {Object} Sender
+ * @typedef {string} uuid // todo
+ */
+
+/**
  * @typedef {Object} Player
  * @property {string} playerName
  */
@@ -23,75 +28,80 @@
  */
 
 /**
- * @typedef {Object} ProtocolMessage
- * @property {"PingRequest"|"PingReply"|"ChatText"} type
- * @property { PingRequest | PingReply | ChatText } payload
+ * @typedef {(
+ *   { sender: Sender, type: "PingRequest", payload: PingRequest } |
+ *   { sender: Sender, type: "PingReply", payload: PingReply } |
+ *   { sender: Sender, type: "ChatText", payload: ChatText }
+ * )} ProtocolMessage
  */
 
 /**
- * @typedef {Object} ProtocolWrapperArgs
-  * @param {(buf: Uint8Array) => Promise<void>} tx
- * @property {(msg: PingRequest) => void} onPingRequest
- * @property {(msg: PingReply) => void} onPingReply
- * @property {(msg: ChatText) => void} onChatText
+ * @typedef {Object} ProtocolWrapperCallbacks
+ * @property {(err: any) => void} [onParseError]
+ * @property {(sender: Sender, msg: PingRequest) => void} [onPingRequest]
+ * @property {(sender: Sender, msg: PingReply) => void} [onPingReply]
+ * @property {(sender: Sender, msg: ChatText) => void} [onChatText]
  */
-
 export class ProtocolWrapper {
   /**
-   * @param {ProtocolWrapperArgs} args
+   * @param {(content: string) => Promise<void>} tx
+   * @param {Sender} sender
+   * @param {ProtocolWrapperCallbacks} [options]
    */
-  constructor({
-    tx,
+  constructor(tx, sender, {
+    onParseError = (msg) => { console.log("parse error", msg) },
     onPingRequest = () => { },
     onPingReply = () => { },
     onChatText = () => { },
   } = {}) {
     this.tx = tx;
+    this.sender = sender;
+    this.onParseError = onParseError;
     this.onPingRequest = onPingRequest;
-    this.onPingReply = onPingReply
+    this.onPingReply = onPingReply;
     this.onChatText = onChatText;
   }
 
   /**
-   * Handle a raw incoming buffer (assumed to be JSON).
-   * @param {Uint8Array} buf
+   * Deserialize a protocol message and act on it
+   * @param {string} content
    */
-  handleIncoming(buf) {
+  recieveRaw(content) {
     try {
-      const jsonStr = new TextDecoder().decode(buf);
       /** @type {ProtocolMessage} */
-      const msg = JSON.parse(jsonStr);
+      const msg = JSON.parse(content);
 
       switch (msg.type) {
         case "PingRequest":
-          this.onPingRequest(msg.payload);
+          this.onPingRequest(msg.sender, msg.payload);
           break;
         case "PingReply":
-          this.onPingReply(msg.payload);
+          this.onPingReply(msg.sender, msg.payload);
           break;
         case "ChatText":
-          this.onChatText(msg.payload);
+          this.onChatText(msg.sender, msg.payload);
           break;
         default:
-          console.warn("Unknown protocol message type:", msg.type);
+          // @ts-expect-error
+          this.onParseError({"Unknown protocol message type": msg.type});
       }
     } catch (err) {
-      console.error("Failed to parse incoming message:", err);
+      this.onParseError({"Failed to parse incoming message": err, "content": content});
     }
   }
 
   /**
-   * Serialize a protocol message to Uint8Array for sending.
+   * Serialize a protocol message to string for sending.
    * @param {ProtocolMessage} json
    */
   sendRaw(json) {
-    this.tx(new TextEncoder().encode(JSON.stringify(json)))
+    this.tx(JSON.stringify(json))
   }
 
   /** @param {PingRequest} msg */
-  sendPingRequest = (msg) => this.sendRaw({ type: "PingRequest", payload: msg })
+  sendPingRequest = (msg) => this.sendRaw({ type: "PingRequest", sender: this.sender, payload: msg })
   /** @param {PingReply} msg */
-  sendPingReply = (msg) => this.sendRaw({ type: "PingReply", payload: msg })
+  sendPingReply = (msg) => this.sendRaw({ type: "PingReply", sender: this.sender, payload: msg })
   /** @param {ChatText} msg */
-  sendChatText = (msg) => this.sendRaw({ type: "ChatText", payload: msg })
+  sendChatText = (msg) => this.sendRaw({ type: "ChatText", sender: this.sender, payload: msg })
 }

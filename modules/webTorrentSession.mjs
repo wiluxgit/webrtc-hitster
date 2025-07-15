@@ -6,6 +6,7 @@ async function roomToInfoHash(room) {
 function decodeBencodeString(buf) {
     // Only decode if it's a bencoded string (e.g. "4:test")
     const str = new TextDecoder().decode(buf);
+    console.trace("str", str)
     const match = str.match(/^(\d+):/);
     if (match) {
         const len = parseInt(match[1], 10);
@@ -22,13 +23,13 @@ export class WebTorrentSession {
     constructor({
         roomId = null,
         onStatus = (str) => { },
-        onChatMessage = (str) => { },
+        onDataMessage = (str) => { },
         onSystemMessage = (str) => { },
         client = null
     } = {}) {
         this.roomId = roomId;
         this.onStatus = onStatus;
-        this.onChatMessage = onChatMessage;
+        this.onDataMessage = onDataMessage;
         this.onSystemMessage = onSystemMessage;
         this.client = client || new WebTorrent();
         this.wire = null;
@@ -53,7 +54,7 @@ export class WebTorrentSession {
         });
     }
 
-    sendMessage(msg) {
+    sendRaw(msg) {
         if (this.wire) {
             this.wire.extended('ut_metadata', new TextEncoder().encode(msg));
         } else {
@@ -69,7 +70,8 @@ export class WebTorrentSession {
             if (ext === 'ut_metadata' && buf) {
                 try {
                     const msg = decodeBencodeString(buf);
-                    this.onChatMessage(msg);
+                    console.trace("buf", buf, "msg", msg)
+                    this.onDataMessage(msg);
                 } catch { }
             }
         });
