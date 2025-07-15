@@ -13,9 +13,25 @@
         extend: {
           colors: {
             magenta: {
-              500: '#d0006f',
-              700: '#a10056',
-            }
+              500: "#d0006f",
+              700: "#a10056",
+            },
+            teal:  {
+              50: "#edfcfe",
+              100: "#d2f6fb",
+              200: "#abecf6",
+              300: "#72dcee",
+              400: "#31c2df",
+              500: "#149ebc",
+              600: "#1484a6",
+              700: "#176b87",
+              800: "#1c576e",
+              900: "#1c495d",
+              950: "#0c2f40",
+            },
+          },
+          screens: {
+            sm: '1000px', // This means "mobile" ends at 500px
           }
         }
       }
@@ -33,9 +49,11 @@
         username: 'RandomPlayerName',
         joinLink: '',
         currentTrack: 'Chill Vibes - DJ Flow',
-        showSidebar: false,
+        showLeftSidebar: true,
+        showRightSidebar: true,
+        showCopiedPopup: false,
         roomMembers: [
-          {id: 0, name: "You"}
+          { id: 0, name: "You" }
         ],
         roomStatus: "?",
         roomChatOutput: [],
@@ -78,7 +96,6 @@
           });
         },
         createRoom() {
-          const url = new URL(window.location.href);
           const roomId = Math.random().toString(36).slice(2, 10).toUpperCase();
           this.tryEnterRoom(roomId);
         },
@@ -96,11 +113,21 @@
           }
         },
         shareRoom() {
-          navigator.clipboard.writeText(this.roomId);
-          alert('Room ID copied to clipboard!');
+          const url = new URL(window.location.href);
+          url.searchParams.set("room", this.roomId);
+          const urlString = url.toString();
+          navigator.clipboard.writeText(urlString);
+
+          this.showCopiedPopup = true;
+          setTimeout(() => {
+            this.showCopiedPopup = false;
+          }, 2000);
         },
-        toggleSidebar() {
-          this.showSidebar = !this.showSidebar;
+        toggleLeftSidebar() {
+          this.showLeftSidebar = !this.showLeftSidebar;
+        },
+        toggleRigthSidebar() {
+          this.showRightSidebar = !this.showRightSidebar;
         },
         chatSubmit() {
           this.appendMessage("You", this.roomChatInput);
@@ -119,19 +146,27 @@
           });
         },
         yeargroups: [
-          {id: 0, year: "2010", tracks: [
-              {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
-              {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
-          ]},
-          {id: 1, year: "2022", tracks: [
-              {id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3"},
-              {id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3"},
-          ]},
-          {id: 2, year: "2023", tracks: [
-              {id: 1, name: "Song C", artist: "Artist 3", preview_url: "z.mp3"},
-          ]},
-          {id: 3, year: "", new: true, tracks: [
-          ]},
+          {
+            id: 0, year: "2010", tracks: [
+              { id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3" },
+              { id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3" },
+            ]
+          },
+          {
+            id: 1, year: "2022", tracks: [
+              { id: 1, name: "Song A", artist: "Artist 1", preview_url: "x.mp3" },
+              { id: 2, name: "Song B", artist: "Artist 2", preview_url: "y.mp3" },
+            ]
+          },
+          {
+            id: 2, year: "2023", tracks: [
+              { id: 1, name: "Song C", artist: "Artist 3", preview_url: "z.mp3" },
+            ]
+          },
+          {
+            id: 3, year: "", new: true, tracks: [
+            ]
+          },
         ],
       };
     }
@@ -145,9 +180,16 @@
   <script src="https://unpkg.com/alpinejs" defer></script>
 </head>
 
-<body class="h-full w-full bg-gray-900 text-white dark:text-white"
-  x-data="gameApp()" x-init="init()"
->
+<body class="h-full w-full bg-gray-900 text-white dark:text-white" x-data="gameApp()" x-init="init()">
+  <div x-show="showCopiedPopup" x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="transform -translate-y-full opacity-0"
+    x-transition:enter-end="transform translate-y-0 opacity-100" x-transition:leave="transition ease-in duration-300"
+    x-transition:leave-start="transform translate-y-0 opacity-100"
+    x-transition:leave-end="transform -translate-y-full opacity-0"
+    class="fixed top-0 left-1/2 transform -translate-x-1/2 bg-white bg-white text-magenta-700 font-semibold px-6 py-2 rounded shadow text-lg z-50 pointer-events-none"
+    style="user-select: none;">
+    ✅ Room URL copied to clipboard!
+  </div>
   <!-- HEADER -->
   <header class="bg-magenta-700 shadow p-4 text-center">
     <template x-if="roomJoined">
@@ -166,8 +208,17 @@
 
   <!-- MAIN -->
   <div class="flex h-[calc(100%-8rem)]">
-    <!-- Sidebar -->
-    <aside x-show="roomJoined" :class="{'fixed sm:relative z-20 sm:z-0 sm:block': true, 'w-2/3 sm:w-64': true, 'left-0 top-0 h-full sm:h-auto p-4 bg-magenta-500 text-white border-r': true, 'hidden': !showSidebar && window.innerWidth < 640}" x-transition>
+    <!-- Left Sidebar -->
+    <aside x-show="roomJoined"
+      class="fixed top-0 left-0 h-full w-2/3 sm:w-80 p-4 bg-magenta-500 text-white z-20 transform transition-transform duration-300 border-r border-magenta-500 shadow-xl"
+      :class="showLeftSidebar ? 'translate-x-0' : '-translate-x-full'">
+      <!-- Left Toggle Button (inside sidebar, stuck to the right edge) -->
+      <button class="absolute right-0 translate-x-full rounded-r bg-white text-black px-2 py-4 shadow z-30"
+        @click="toggleLeftSidebar">
+        <span x-text="showLeftSidebar ? '←💬' : '💬→'"></span>
+      </button>
+      <!-- Sidebar Content -->
+      <div class="font-bold mb-2 text-xl">Room</div>
       <div class="font-bold">Room Status:</div>
       <div class="mb-2" x-text="roomStatus"></div>
       <div class="font-bold">Room Members</div>
@@ -187,24 +238,34 @@
       </div>
       <form @submit.prevent="chatSubmit">
         <!-- name id autocomplete crap is needed to not autofill -->
-        <input
-          type="text"
-          x-model="roomChatInput"
-          class="w-full text-black rounded px-2 py-1"
-          placeholder="Type a message..."
-          autocomplete="off"
-          name="message_input"
-          id="message_input"
-        />
+        <input type="text" x-model="roomChatInput" class="w-full text-black rounded px-2 py-1"
+          placeholder="Type a message..." autocomplete="off" name="message_input" id="message_input" />
       </form>
     </aside>
 
-    <!-- Toggle Sidebar Handle Button -->
-    <div x-show="roomJoined" class="sm:hidden absolute left-0 top-1/2 z-30">
-      <button class="bg-magenta-700 text-white px-2 py-4 rounded-r shadow" @click="toggleSidebar">
-        <span x-text="showSidebar ? '←' : '→'"></span>
+    <!-- Right Sidebar: Game Controls -->
+    <aside x-show="roomJoined"
+      class="fixed top-0 right-0 h-full w-2/3 sm:w-80 p-4 bg-magenta-500 text-white z-20 transform transition-transform duration-300 border-l border-magenta-700 shadow-xl"
+      :class="showRightSidebar ? 'translate-x-0' : 'translate-x-full'">
+      <!-- Right Toggle Button (inside sidebar, stuck to the left edge) -->
+      <button class="absolute left-0 -translate-x-full rounded-l bg-white text-black px-2 py-4 shadow z-30"
+        @click="toggleRigthSidebar">
+        <span x-text="showRightSidebar ? '⚙️→' : '←⚙️'"></span>
       </button>
-    </div>
+      <!-- Sidebar Content -->
+      <div class="font-bold mb-2 text-xl">Game Setup</div>
+      <div class="space-y-4">
+        <button class="bg-magenta-700 hover:bg-magenta-800 text-white px-4 py-2 rounded w-full">Login with
+          Spotify</button>
+        <div>
+          <label class="block text-sm font-bold mb-1">Spotify Link</label>
+          <input type="text" placeholder="Paste Spotify URL..." class="w-full px-3 py-2 rounded text-black" />
+        </div>
+        <button class="bg-teal-500 hover:bg-teal-700 shadow-xl text-white px-4 py-5 rounded w-full font-bold">
+          Start Game
+        </button>
+      </div>
+    </aside>
 
     <!-- Main Content -->
     <main class="flex-1 mx-auto w-full max-w-md p-4">
@@ -223,18 +284,16 @@
           <p class="text-center mt-4">Welcome to the room, <span x-text="username"></span>!</p>
           <h2 class="text-xl font-bold mb-4">Drag to Reorder Tracks</h2>
 
-          <ul class="max-w-xl mx-auto gap-2 space-y-2" x-sort
-            x-init='function(){
+          <ul class="max-w-xl mx-auto gap-2 space-y-2" x-sort x-init='function(){
               Sortable.create($el, {
                  animation: 150,
               });
-            }'
-          >
+            }'>
             <template x-for="(yg, yix) in yeargroups" :key="yg.id">
               <li class="flex flex-row items-center gap-4" x-sort:item>
                 <!-- tracks -->
                 <div class="flex-1 rounded p-2 "
-                  :class="yg.new ? 'bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200' : 'bg-gray-200 p-2'">
+                  :class="yg.new ? 'bg-teal-500 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200' : 'bg-gray-200 p-2'">
                   <template x-if="!yg.new">
                     <div class="bg-white rounded shadow">
                       <template x-for="(track, tix) in yg.tracks" :key="track.id">
